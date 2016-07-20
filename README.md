@@ -1,5 +1,7 @@
 # mio-uds
 
+[![Build Status](https://travis-ci.org/alexcrichton/mio-uds.svg?branch=master)](https://travis-ci.org/alexcrichton/mio-uds)
+
 [Documentation](http://alexcrichton.com/mio-uds/mio-uds)
 
 A library for integrating Unix Domain Sockets with [mio]. Based on the standard
