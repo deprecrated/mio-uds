@@ -59,7 +59,7 @@ fn stream() {
     assert_eq!(t!(a.write(&[3])), 1);
 
     assert_eq!(t!(poll.poll(&mut events, Some(Duration::new(0, 0)))), 1);
-    assert_eq!(events.get(0).unwrap().kind(), both);
+    assert!(events.get(0).unwrap().kind().is_readable());
     assert_eq!(events.get(0).unwrap().token(), Token(2));
 
     assert_eq!(t!(b.read(&mut [0; 1024])), 1);
