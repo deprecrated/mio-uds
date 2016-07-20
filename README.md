@@ -12,9 +12,12 @@ types are nonblocking to conform with the expectations of mio.
 ```toml
 # Cargo.toml
 [dependencies]
-mio-uds = "0.5"
-mio = "0.5"
+mio-uds = { git = "https://github.com/alexcrichton/mio-uds" }
+mio = { git = "https://github.com/carllerche/mio" }
 ```
+
+> **Note**: This library depends on the unreleased 0.6.0 version of mio, so
+> you'll need to also depend on the `master` branch of mio for now to use it.
 
 ## Usage
 
