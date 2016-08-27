@@ -6,7 +6,7 @@ use std::path::Path;
 
 use libc;
 use mio::unix::EventedFd;
-use mio::{Evented, Poll, Token, EventSet, PollOpt};
+use mio::{Evented, Poll, Token, Ready, PollOpt};
 
 use cvt;
 use socket::{sockaddr_un, Socket};
@@ -128,7 +128,7 @@ impl Evented for UnixDatagram {
     fn register(&self,
                 poll: &Poll,
                 token: Token,
-                events: EventSet,
+                events: Ready,
                 opts: PollOpt) -> io::Result<()> {
         EventedFd(&self.as_raw_fd()).register(poll, token, events, opts)
     }
@@ -136,7 +136,7 @@ impl Evented for UnixDatagram {
     fn reregister(&self,
                   poll: &Poll,
                   token: Token,
-                  events: EventSet,
+                  events: Ready,
                   opts: PollOpt) -> io::Result<()> {
         EventedFd(&self.as_raw_fd()).reregister(poll, token, events, opts)
     }

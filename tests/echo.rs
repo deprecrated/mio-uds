@@ -24,7 +24,7 @@ struct EchoConn {
     sock: UnixStream,
     buf: Vec<u8>,
     token: Option<Token>,
-    interest: EventSet,
+    interest: Ready,
 }
 
 impl EchoConn {
@@ -33,7 +33,7 @@ impl EchoConn {
             sock: sock,
             buf: Vec::new(),
             token: None,
-            interest: EventSet::hup(),
+            interest: Ready::hup(),
         }
     }
 
@@ -41,11 +41,11 @@ impl EchoConn {
         match self.sock.write(&self.buf) {
             Ok(n) => {
                 assert_eq!(n, self.buf.len());
-                self.interest.insert(EventSet::readable());
-                self.interest.remove(EventSet::writable());
+                self.interest.insert(Ready::readable());
+                self.interest.remove(Ready::writable());
             }
             Err(ref e) if e.kind() == WouldBlock => {
-                self.interest.insert(EventSet::writable());
+                self.interest.insert(Ready::writable());
             }
             Err(e) => panic!("not implemented; client err={:?}", e),
         }
@@ -63,12 +63,12 @@ impl EchoConn {
             Ok(r) => {
                 self.buf = buf[..r].to_vec();
 
-                self.interest.remove(EventSet::readable());
-                self.interest.insert(EventSet::writable());
+                self.interest.remove(Ready::readable());
+                self.interest.insert(Ready::writable());
             }
             Err(ref e) if e.kind() == WouldBlock => {}
             Err(_e) => {
-                self.interest.remove(EventSet::readable());
+                self.interest.remove(Ready::readable());
             }
         }
 
@@ -94,7 +94,7 @@ impl EchoServer {
         // Register the connection
         self.conn(tok).token = Some(tok);
         t!(poll.register(&self.conn(tok).sock, tok,
-                         EventSet::readable(),
+                         Ready::readable(),
                          PollOpt::edge() | PollOpt::oneshot()));
 
         Ok(())
@@ -119,7 +119,7 @@ struct EchoClient {
     tx: &'static [u8],
     rx: &'static [u8],
     token: Token,
-    interest: EventSet,
+    interest: Ready,
     active: bool,
 }
 
@@ -135,7 +135,7 @@ impl EchoClient {
             tx: curr.as_bytes(),
             rx: curr.as_bytes(),
             token: tok,
-            interest: EventSet::none(),
+            interest: Ready::none(),
             active: true,
         }
     }
@@ -147,7 +147,7 @@ impl EchoClient {
                 assert_eq!(&self.rx[..n], &buf[..n]);
                 self.rx = &self.rx[n..];
 
-                self.interest.remove(EventSet::readable());
+                self.interest.remove(Ready::readable());
 
                 if self.rx.len() == 0 {
                     self.next_msg(poll).unwrap();
@@ -171,11 +171,11 @@ impl EchoClient {
         match self.sock.write(self.tx) {
             Ok(r) => {
                 self.tx = &self.tx[r..];
-                self.interest.insert(EventSet::readable());
-                self.interest.remove(EventSet::writable());
+                self.interest.insert(Ready::readable());
+                self.interest.remove(Ready::writable());
             }
             Err(ref e) if e.kind() == WouldBlock => {
-                self.interest.insert(EventSet::writable());
+                self.interest.insert(Ready::writable());
             }
             Err(e) => panic!("not implemented; client err={:?}", e)
         }
@@ -197,7 +197,7 @@ impl EchoClient {
         self.tx = curr.as_bytes();
         self.rx = curr.as_bytes();
 
-        self.interest.insert(EventSet::writable());
+        self.interest.insert(Ready::writable());
         assert!(self.interest.is_readable() || self.interest.is_writable(),
                 "actual={:?}", self.interest);
         poll.reregister(&self.sock, self.token, self.interest,
@@ -224,7 +224,7 @@ impl Echo {
     fn ready(&mut self,
              poll: &Poll,
              token: Token,
-             events: EventSet) {
+             events: Ready) {
         println!("ready {:?} {:?}", token, events);
         if events.is_readable() {
             match token {
@@ -255,13 +255,13 @@ fn echo_server() {
     let srv = t!(UnixListener::bind(&addr));
     t!(poll.register(&srv,
                      SERVER,
-                     EventSet::readable(),
+                     Ready::readable(),
                      PollOpt::edge() | PollOpt::oneshot()));
 
     let sock = t!(UnixStream::connect(&addr));
     t!(poll.register(&sock,
                      CLIENT,
-                     EventSet::writable(),
+                     Ready::writable(),
                      PollOpt::edge() | PollOpt::oneshot()));
 
     let mut echo = Echo::new(srv, sock, vec!["foo", "bar"]);

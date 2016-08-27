@@ -5,7 +5,7 @@ use std::path::Path;
 
 use libc;
 use mio::unix::EventedFd;
-use mio::{Evented, Poll, Token, EventSet, PollOpt};
+use mio::{Evented, Poll, Token, Ready, PollOpt};
 
 use UnixStream;
 use cvt;
@@ -86,7 +86,7 @@ impl Evented for UnixListener {
     fn register(&self,
                 poll: &Poll,
                 token: Token,
-                events: EventSet,
+                events: Ready,
                 opts: PollOpt) -> io::Result<()> {
         EventedFd(&self.as_raw_fd()).register(poll, token, events, opts)
     }
@@ -94,7 +94,7 @@ impl Evented for UnixListener {
     fn reregister(&self,
                   poll: &Poll,
                   token: Token,
-                  events: EventSet,
+                  events: Ready,
                   opts: PollOpt) -> io::Result<()> {
         EventedFd(&self.as_raw_fd()).reregister(poll, token, events, opts)
     }
