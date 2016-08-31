@@ -250,7 +250,7 @@ fn echo_server() {
     let addr = tmp_dir.path().join("sock");
 
     let poll = t!(Poll::new());
-    let mut events = Events::new();
+    let mut events = Events::with_capacity(1024);
 
     let srv = t!(UnixListener::bind(&addr));
     t!(poll.register(&srv,

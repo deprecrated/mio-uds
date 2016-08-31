@@ -27,7 +27,7 @@ fn listener() {
     assert!(t!(b.accept()).is_none());
 
     let poll = t!(Poll::new());
-    let mut events = Events::new();
+    let mut events = Events::with_capacity(1024);
 
     t!(a.register(&poll, Token(1), Ready::readable(), PollOpt::edge()));
 
@@ -45,7 +45,7 @@ fn listener() {
 #[test]
 fn stream() {
     let poll = t!(Poll::new());
-    let mut events = Events::new();
+    let mut events = Events::with_capacity(1024);
     let (mut a, mut b) = t!(UnixStream::pair());
 
     let both = Ready::readable() | Ready::writable();
