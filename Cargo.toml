@@ -1,11 +1,11 @@
 [package]
 name = "mio-uds"
-version = "0.5.0"
+version = "0.6.0"
 authors = ["Alex Crichton <alex@alexcrichton.com>"]
 
 [target."cfg(unix)".dependencies]
 libc = "0.2"
-mio = { git = "https://github.com/carllerche/mio" }
+mio = "0.6"
 
 [dev-dependencies]
 tempdir = "0.3"
