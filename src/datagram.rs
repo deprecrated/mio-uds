@@ -40,7 +40,7 @@ impl UnixDatagram {
     ///
     /// The returned stream is moved into nonblocking mode and is otherwise
     /// ready to get associated with an event loop.
-    pub fn from_listener(stream: net::UnixDatagram) -> io::Result<UnixDatagram> {
+    pub fn from_datagram(stream: net::UnixDatagram) -> io::Result<UnixDatagram> {
         try!(stream.set_nonblocking(true));
         Ok(UnixDatagram { inner: stream })
     }
