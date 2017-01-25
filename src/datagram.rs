@@ -35,6 +35,16 @@ impl UnixDatagram {
         }
     }
 
+    /// Consumes a standard library `UnixDatagram` and returns a wrapped
+    /// `UnixDatagram` compatible with mio.
+    ///
+    /// The returned stream is moved into nonblocking mode and is otherwise
+    /// ready to get associated with an event loop.
+    pub fn from_listener(stream: net::UnixDatagram) -> io::Result<UnixDatagram> {
+        try!(stream.set_nonblocking(true));
+        Ok(UnixDatagram { inner: stream })
+    }
+
     /// Create an unnamed pair of connected sockets.
     ///
     /// Returns two `UnixDatagrams`s which are connected to each other.

@@ -58,6 +58,16 @@ impl UnixStream {
         }
     }
 
+    /// Consumes a standard library `UnixStream` and returns a wrapped
+    /// `UnixStream` compatible with mio.
+    ///
+    /// The returned stream is moved into nonblocking mode and is otherwise
+    /// ready to get associated with an event loop.
+    pub fn from_stream(stream: net::UnixStream) -> io::Result<UnixStream> {
+        try!(stream.set_nonblocking(true));
+        Ok(UnixStream { inner: stream })
+    }
+
     /// Creates an unnamed pair of connected sockets.
     ///
     /// Returns two `UnixStream`s which are connected to each other.

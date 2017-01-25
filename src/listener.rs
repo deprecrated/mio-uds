@@ -40,6 +40,16 @@ impl UnixListener {
         }
     }
 
+    /// Consumes a standard library `UnixListener` and returns a wrapped
+    /// `UnixListener` compatible with mio.
+    ///
+    /// The returned stream is moved into nonblocking mode and is otherwise
+    /// ready to get associated with an event loop.
+    pub fn from_listener(stream: net::UnixListener) -> io::Result<UnixListener> {
+        try!(stream.set_nonblocking(true));
+        Ok(UnixListener { inner: stream })
+    }
+
     /// Accepts a new incoming connection to this listener.
     ///
     /// When established, the corresponding `UnixStream` and the remote peer's
