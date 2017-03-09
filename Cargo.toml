@@ -17,7 +17,7 @@ travis-ci = { repository = "alexcrichton/mio-uds" }
 
 [target."cfg(unix)".dependencies]
 libc = "0.2"
-mio = "0.6"
+mio = { git = "https://github.com/carllerche/mio", default-features = false }
 
 [dev-dependencies]
 tempdir = "0.3"

@@ -135,7 +135,7 @@ impl EchoClient {
             tx: curr.as_bytes(),
             rx: curr.as_bytes(),
             token: tok,
-            interest: Ready::none(),
+            interest: Ready::empty(),
             active: true,
         }
     }
@@ -157,7 +157,7 @@ impl EchoClient {
             Err(e) => panic!("error {}", e),
         }
 
-        if !self.interest.is_none() {
+        if !self.interest.is_empty() {
             assert!(self.interest.is_readable() || self.interest.is_writable(),
                     "actual={:?}", self.interest);
             try!(poll.reregister(&self.sock, self.token, self.interest,
@@ -270,7 +270,7 @@ fn echo_server() {
 
         for i in 0..events.len() {
             let event = events.get(i).unwrap();
-            echo.ready(&poll, event.token(), event.kind());
+            echo.ready(&poll, event.token(), event.readiness());
         }
     }
 }
