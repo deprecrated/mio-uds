@@ -6,8 +6,9 @@ use std::path::Path;
 use std::net::Shutdown;
 
 use libc;
+use mio::event::Evented;
 use mio::unix::EventedFd;
-use mio::{Evented, Poll, Token, Ready, PollOpt};
+use mio::{Poll, Token, Ready, PollOpt};
 
 use cvt;
 use socket::{sockaddr_un, Socket};

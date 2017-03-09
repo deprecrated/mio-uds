@@ -4,8 +4,9 @@ use std::os::unix::prelude::*;
 use std::path::Path;
 
 use libc;
+use mio::event::Evented;
 use mio::unix::EventedFd;
-use mio::{Evented, Poll, Token, Ready, PollOpt};
+use mio::{Poll, Token, Ready, PollOpt};
 
 use UnixStream;
 use cvt;

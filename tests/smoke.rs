@@ -29,7 +29,7 @@ fn listener() {
     let poll = t!(Poll::new());
     let mut events = Events::with_capacity(1024);
 
-    t!(a.register(&poll, Token(1), Ready::readable(), PollOpt::edge()));
+    t!(poll.register(&a, Token(1), Ready::readable(), PollOpt::edge()));
 
     let s = t!(UnixStream::connect(td.path().join("foo")));
 
@@ -49,17 +49,17 @@ fn stream() {
     let (mut a, mut b) = t!(UnixStream::pair());
 
     let both = Ready::readable() | Ready::writable();
-    t!(a.register(&poll, Token(1), both, PollOpt::edge()));
-    t!(b.register(&poll, Token(2), both, PollOpt::edge()));
+    t!(poll.register(&a, Token(1), both, PollOpt::edge()));
+    t!(poll.register(&b, Token(2), both, PollOpt::edge()));
 
     assert_eq!(t!(poll.poll(&mut events, Some(Duration::new(0, 0)))), 2);
-    assert_eq!(events.get(0).unwrap().kind(), Ready::writable());
-    assert_eq!(events.get(1).unwrap().kind(), Ready::writable());
+    assert_eq!(events.get(0).unwrap().readiness(), Ready::writable());
+    assert_eq!(events.get(1).unwrap().readiness(), Ready::writable());
 
     assert_eq!(t!(a.write(&[3])), 1);
 
     assert_eq!(t!(poll.poll(&mut events, Some(Duration::new(0, 0)))), 1);
-    assert!(events.get(0).unwrap().kind().is_readable());
+    assert!(events.get(0).unwrap().readiness().is_readable());
     assert_eq!(events.get(0).unwrap().token(), Token(2));
 
     assert_eq!(t!(b.read(&mut [0; 1024])), 1);
