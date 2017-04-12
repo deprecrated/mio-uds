@@ -57,6 +57,13 @@ impl UnixDatagram {
         }
     }
 
+    /// Creates a Unix Datagram socket which is not bound to any address.
+    pub fn unbound() -> io::Result<UnixDatagram> {
+        let stream = try!(net::UnixDatagram::unbound());
+        try!(stream.set_nonblocking(true));
+        Ok(UnixDatagram { inner: stream })
+    }
+
     /// Connects the socket to the specified address.
     ///
     /// The `send` method may be used to send data to the specified address.
