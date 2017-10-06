@@ -16,6 +16,7 @@ categories = ["asynchronous"]
 travis-ci = { repository = "alexcrichton/mio-uds" }
 
 [target."cfg(unix)".dependencies]
+iovec = "0.1"
 libc = "0.2"
 mio = "0.6.5"
 
