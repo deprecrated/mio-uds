@@ -28,7 +28,7 @@ impl UnixListener {
         UnixListener::_bind(path.as_ref())
     }
 
-    #[cfg(not(target_arch = "aarch64"))]
+    #[cfg(not(all(target_arch = "aarch64",target_os = "android")))]
     fn _bind(path: &Path) -> io::Result<UnixListener> {
         unsafe {
             let (addr, len) = try!(sockaddr_un(path));
@@ -42,7 +42,7 @@ impl UnixListener {
         }
     }
 
-    #[cfg(target_arch = "aarch64")]
+    #[cfg(all(target_arch = "aarch64",target_os = "android"))]
     fn _bind(path: &Path) -> io::Result<UnixListener> {
         unsafe {
             let (addr, len) = try!(sockaddr_un(path));
