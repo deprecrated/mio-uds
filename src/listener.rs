@@ -10,6 +10,7 @@ use mio::{Poll, Token, Ready, PollOpt};
 
 use UnixStream;
 use cvt;
+use Len;
 use socket::{sockaddr_un, Socket};
 
 /// A structure representing a Unix domain socket server.
@@ -28,28 +29,13 @@ impl UnixListener {
         UnixListener::_bind(path.as_ref())
     }
 
-    #[cfg(not(all(target_arch = "aarch64",target_os = "android")))]
     fn _bind(path: &Path) -> io::Result<UnixListener> {
         unsafe {
             let (addr, len) = try!(sockaddr_un(path));
             let fd = try!(Socket::new(libc::SOCK_STREAM));
 
             let addr = &addr as *const _ as *const _;
-            try!(cvt(libc::bind(fd.fd(), addr, len)));
-            try!(cvt(libc::listen(fd.fd(), 128)));
-
-            Ok(UnixListener::from_raw_fd(fd.into_fd()))
-        }
-    }
-
-    #[cfg(all(target_arch = "aarch64",target_os = "android"))]
-    fn _bind(path: &Path) -> io::Result<UnixListener> {
-        unsafe {
-            let (addr, len) = try!(sockaddr_un(path));
-            let fd = try!(Socket::new(libc::SOCK_STREAM));
-
-            let addr = &addr as *const _ as *const _;
-            try!(cvt(libc::bind(fd.fd(), addr, len as i32)));
+            try!(cvt(libc::bind(fd.fd(), addr, len as Len)));
             try!(cvt(libc::listen(fd.fd(), 128)));
 
             Ok(UnixListener::from_raw_fd(fd.into_fd()))

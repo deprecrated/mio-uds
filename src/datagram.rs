@@ -10,6 +10,7 @@ use mio::unix::EventedFd;
 use mio::{Poll, Token, Ready, PollOpt};
 
 use cvt;
+use Len;
 use socket::{sockaddr_un, Socket};
 
 /// A Unix datagram socket.
@@ -24,27 +25,13 @@ impl UnixDatagram {
         UnixDatagram::_bind(path.as_ref())
     }
 
-    #[cfg(not(all(target_arch = "aarch64",target_os = "android")))]
     fn _bind(path: &Path) -> io::Result<UnixDatagram> {
         unsafe {
             let (addr, len) = try!(sockaddr_un(path));
             let fd = try!(Socket::new(libc::SOCK_DGRAM));
 
             let addr = &addr as *const _ as *const _;
-            try!(cvt(libc::bind(fd.fd(), addr, len)));
-
-            Ok(UnixDatagram::from_raw_fd(fd.into_fd()))
-        }
-    }
-    
-    #[cfg(all(target_arch = "aarch64",target_os = "android"))]
-    fn _bind(path: &Path) -> io::Result<UnixDatagram> {
-        unsafe {
-            let (addr, len) = try!(sockaddr_un(path));
-            let fd = try!(Socket::new(libc::SOCK_DGRAM));
-
-            let addr = &addr as *const _ as *const _;
-            try!(cvt(libc::bind(fd.fd(), addr, len as i32)));
+            try!(cvt(libc::bind(fd.fd(), addr, len as Len)));
 
             Ok(UnixDatagram::from_raw_fd(fd.into_fd()))
         }
