@@ -10,6 +10,7 @@ use mio::unix::EventedFd;
 use mio::{Poll, Token, Ready, PollOpt};
 
 use cvt;
+use Len;
 use socket::{sockaddr_un, Socket};
 
 /// A Unix datagram socket.
@@ -30,7 +31,7 @@ impl UnixDatagram {
             let fd = try!(Socket::new(libc::SOCK_DGRAM));
 
             let addr = &addr as *const _ as *const _;
-            try!(cvt(libc::bind(fd.fd(), addr, len)));
+            try!(cvt(libc::bind(fd.fd(), addr, len as Len)));
 
             Ok(UnixDatagram::from_raw_fd(fd.into_fd()))
         }
