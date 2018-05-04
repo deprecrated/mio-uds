@@ -20,7 +20,7 @@ pub use listener::UnixListener;
 pub use datagram::UnixDatagram;
 
 #[cfg(not(all(target_arch = "aarch64",target_os = "android")))]
-type Len = u32;
+type Len = libc::socklen_t;
 #[cfg(all(target_arch = "aarch64",target_os = "android"))]
 type Len = i32;
 
