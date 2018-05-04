@@ -20,9 +20,10 @@ pub use listener::UnixListener;
 pub use datagram::UnixDatagram;
 
 #[cfg(not(all(target_arch = "aarch64",target_os = "android")))]
-type Len = u32;
+type Len = libc::socklen_t;
+// Match Android weirdness for aarch64 found in libc.
 #[cfg(all(target_arch = "aarch64",target_os = "android"))]
-type Len = i32;
+type Len = libc::c_int;
 
 fn cvt(i: libc::c_int) -> io::Result<libc::c_int> {
     if i == -1 {
