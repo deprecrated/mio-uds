@@ -10,7 +10,6 @@ use mio::{Poll, PollOpt, Ready, Token};
 
 use UnixStream;
 use cvt;
-use Len;
 use socket::{sockaddr_un, Socket};
 
 /// A structure representing a Unix domain socket server.
@@ -35,7 +34,7 @@ impl UnixListener {
             let fd = try!(Socket::new(libc::SOCK_STREAM));
 
             let addr = &addr as *const _ as *const _;
-            try!(cvt(libc::bind(fd.fd(), addr, len as Len)));
+            try!(cvt(libc::bind(fd.fd(), addr, len as libc::socklen_t)));
             try!(cvt(libc::listen(fd.fd(), 128)));
 
             Ok(UnixListener::from_raw_fd(fd.into_fd()))
