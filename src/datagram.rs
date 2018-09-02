@@ -30,7 +30,7 @@ impl UnixDatagram {
             let fd = try!(Socket::new(libc::SOCK_DGRAM));
 
             let addr = &addr as *const _ as *const _;
-            try!(cvt(libc::bind(fd.fd(), addr, len as libc::socklen_t)));
+            try!(cvt(libc::bind(fd.fd(), addr, len)));
 
             Ok(UnixDatagram::from_raw_fd(fd.into_fd()))
         }
