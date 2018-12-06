@@ -1,8 +1,10 @@
 use std::cmp;
 use std::io::prelude::*;
 use std::io;
+use std::mem;
 use std::os::unix::net;
 use std::os::unix::prelude::*;
+use std::ptr;
 use std::path::Path;
 use std::net::Shutdown;
 
@@ -15,6 +17,8 @@ use mio::{Poll, Token, Ready, PollOpt};
 
 use cvt;
 use socket::{sockaddr_un, Socket};
+use ancillary::{AncillaryExpect, Ancillary, UCred};
+use cmsg::{Cmsg, CmsgData};
 
 /// A Unix stream socket.
 ///
@@ -35,6 +39,98 @@ use socket::{sockaddr_un, Socket};
 #[derive(Debug)]
 pub struct UnixStream {
     inner: net::UnixStream,
+}
+
+#[repr(C)]
+struct ScmCredentials(libc::ucred);
+
+impl ScmCredentials {
+    fn has_data(&self) -> bool {
+        // to my knowledge, pid=0 is not a valid value
+        self.0.pid != 0
+    }
+}
+
+impl Default for ScmCredentials {
+    fn default() -> Self {
+        ScmCredentials(libc::ucred {
+            pid: 0,
+            // Ensure we do not give root (uid 0) access to anyone
+            uid: libc::uid_t::max_value(),
+            gid: libc::uid_t::max_value(),
+        })
+    }
+}
+
+impl<'a> Into<UCred> for &'a ScmCredentials {
+    #[inline]
+    fn into(self) -> UCred {
+        UCred{
+            pid: self.0.pid,
+            uid: self.0.uid,
+            gid: self.0.gid,
+        }
+    }
+}
+
+impl From<UCred> for ScmCredentials {
+    #[inline]
+    fn from(cred: UCred) -> ScmCredentials {
+        ScmCredentials(libc::ucred {
+            pid: cred.pid,
+            uid: cred.uid,
+            gid: cred.gid,
+        })
+    }
+}
+
+
+trait CmsgT {
+    fn cmsg(self) -> Cmsg;
+}
+
+impl CmsgT for AncillaryExpect {
+    fn cmsg(self) -> Cmsg {
+        let mut cmsg = Cmsg::default();
+
+        cmsg.empty_fds(self.fds);
+        // TODO: need to implement Ucred
+        
+        cmsg
+    }
+}
+
+impl CmsgT for Ancillary {
+    fn cmsg(mut self) -> Cmsg {
+        let mut cmsg = Cmsg::default();
+        cmsg.add_fds_raw(&self.fds_in);
+        // TODO: implement ucred 
+
+        cmsg
+    }
+}
+
+trait CmsgDataT {
+    fn data(&self) -> Ancillary;
+}
+
+impl CmsgDataT for Cmsg {
+    fn data(&self) -> Ancillary {
+        let mut iter = self.iter();
+        let mut out = Ancillary::empty();
+
+        while let Some(el) = iter.next() {
+            println!("el= {:?}", el);
+            match el {
+                CmsgData::Fd(fds) => {
+                    out.fds_in.extend_from_slice(fds);
+                },
+                _ => {} // TODO manage ucred
+            }
+        }
+
+        out
+    }
 }
 
 impl UnixStream {
@@ -130,13 +226,69 @@ impl UnixStream {
     /// The number of bytes read is returned, if successful, or an error is
     /// returned otherwise. If no bytes are available to be read yet then
     /// a "would block" error is returned. This operation does not block.
-    pub fn read_bufs(&self, bufs: &mut [&mut IoVec]) -> io::Result<usize> {
+    pub fn read_bufs(&self, bufs: &mut [&mut IoVec], ancillary: AncillaryExpect) -> io::Result<(usize, Ancillary)> {
         unsafe {
             let slice = iovec::as_os_slice_mut(bufs);
             let len = cmp::min(<libc::c_int>::max_value() as usize, slice.len());
-            let rc = libc::readv(self.inner.as_raw_fd(),
-                                slice.as_ptr(),
-                                len as libc::c_int);
+
+            let mut cmsg = ancillary.cmsg();
+
+            let mut msg = libc::msghdr {
+                msg_name: ptr::null_mut(),
+                msg_namelen: 0,
+                msg_iov: slice.as_mut_ptr(),
+                msg_iovlen: len,
+                msg_control: cmsg.as_mut_slice().as_mut_ptr() as (*mut libc::c_void),
+                msg_controllen: cmsg.len(),
+                msg_flags: 0,
+            };
+
+            let flags = libc::MSG_DONTWAIT; // TODO: do I need this? (socket is probably already set non-blocking)
+            let rc = libc::recvmsg(self.inner.as_raw_fd(),
+                                   &mut msg,
+                                   flags);
+            if rc < 0 {
+                Err(io::Error::last_os_error())
+            } else {
+                let ancillary = cmsg.data();
+                Ok((rc as usize, ancillary))
+            }
+        }
+    }
+
+    /// Write a list of buffers all at once alongside ancillary data.
+    ///
+    /// This operation will attempt to write a list of byte buffers to this
+    /// socket. Note that each buffer is an `IoVec` which can be created from a
+    /// byte slice.
+    ///
+    /// The buffers provided will be written sequentially. A buffer will be
+    /// entirely written before the next is written.
+    ///
+    /// The number of bytes written is returned, if successful, or an error is
+    /// returned otherwise. If the socket is not currently writable then a
+    /// "would block" error is returned. This operation does not block.
+    pub fn write_bufs_ancillary(&self, bufs: &[&IoVec], ancillary: Ancillary) -> io::Result<usize> {
+        unsafe {
+            let slice = iovec::as_os_slice(bufs);
+            let len = cmp::min(<libc::c_int>::max_value() as usize, slice.len());
+
+            let mut cmsg = ancillary.cmsg();
+
+            let msg = libc::msghdr {
+                msg_name: ptr::null_mut(),
+                msg_namelen: 0,
+                msg_iov: slice.as_ptr() as *mut libc::iovec,
+                msg_iovlen: len,
+                msg_control: cmsg.as_mut_slice().as_mut_ptr() as *mut libc::c_void,
+                msg_controllen: cmsg.len(),
+                msg_flags: 0,
+            };
+
+            let flags = libc::MSG_DONTWAIT;
+            let rc = libc::sendmsg(self.inner.as_raw_fd(),
+                                   &msg,
+                                   flags);
             if rc < 0 {
                 Err(io::Error::last_os_error())
             } else {
@@ -158,19 +310,9 @@ impl UnixStream {
     /// returned otherwise. If the socket is not currently writable then a
     /// "would block" error is returned. This operation does not block.
     pub fn write_bufs(&self, bufs: &[&IoVec]) -> io::Result<usize> {
-        unsafe {
-            let slice = iovec::as_os_slice(bufs);
-            let len = cmp::min(<libc::c_int>::max_value() as usize, slice.len());
-            let rc = libc::writev(self.inner.as_raw_fd(),
-                                 slice.as_ptr(),
-                                 len as libc::c_int);
-            if rc < 0 {
-                Err(io::Error::last_os_error())
-            } else {
-                Ok(rc as usize)
-            }
-        }
+        self.write_bufs_ancillary(bufs, Ancillary::empty())
     }
+
 }
 
 impl Evented for UnixStream {

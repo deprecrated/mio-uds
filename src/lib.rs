@@ -7,6 +7,7 @@
 extern crate iovec;
 extern crate libc;
 extern crate mio;
+extern crate byteorder;
 
 use std::io;
 
@@ -14,10 +15,13 @@ mod datagram;
 mod listener;
 mod socket;
 mod stream;
+mod ancillary;
+mod cmsg;
 
 pub use stream::UnixStream;
 pub use listener::UnixListener;
 pub use datagram::UnixDatagram;
+pub use ancillary::{Ancillary, AncillaryExpect, UCred};
 
 fn cvt(i: libc::c_int) -> io::Result<libc::c_int> {
     if i == -1 {
