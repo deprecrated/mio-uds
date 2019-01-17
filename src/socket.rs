@@ -42,9 +42,8 @@ impl Socket {
             }
 
             let fd = Socket { fd: try!(cvt(libc::socket(libc::AF_UNIX, ty, 0))) };
-            try!(cvt(libc::ioctl(fd.fd, libc::FIOCLEX)));
-            let mut nonblocking = 1 as c_ulong;
-            try!(cvt(libc::ioctl(fd.fd, libc::FIONBIO, &mut nonblocking)));
+            fd.set_cloexec();
+            fd.set_nonblocking();
             Ok(fd)
         }
     }
@@ -68,12 +67,45 @@ impl Socket {
             try!(cvt(libc::socketpair(libc::AF_UNIX, ty, 0, fds.as_mut_ptr())));
             let a = Socket { fd: fds[0] };
             let b = Socket { fd: fds[1] };
-            try!(cvt(libc::ioctl(a.fd, libc::FIOCLEX)));
-            try!(cvt(libc::ioctl(b.fd, libc::FIOCLEX)));
-            let mut nonblocking = 1 as c_ulong;
-            try!(cvt(libc::ioctl(a.fd, libc::FIONBIO, &mut nonblocking)));
-            try!(cvt(libc::ioctl(b.fd, libc::FIONBIO, &mut nonblocking)));
+            try!(a.set_cloexec());
+            try!(b.set_cloexec());
+            try!(a.set_nonblocking());
+            try!(b.set_nonblocking());
             Ok((a, b))
+        }
+    }
+
+    #[cfg(not(target_os = "solaris"))]
+    pub fn set_cloexec(&self) -> io::Result<()> {
+        // From libstd/sys/unix/fd.rs
+        unsafe {
+            cvt(libc::ioctl(self.fd, libc::FIOCLEX))?;
+            Ok(())
+        }
+    }
+
+    #[cfg(target_os = "solaris")]
+    pub fn set_cloexec(&self) -> io::Result<()> {
+        // From libstd/sys/unix/fd.rs
+        unsafe {
+            let previous = cvt(libc::fcntl(self.fd, libc::F_GETFD))?;
+            let new = previous | libc::FD_CLOEXEC;
+            if new != previous {
+                cvt(libc::fcntl(self.fd, libc::F_SETFD, new))?;
+            }
+            Ok(())
+        }
+    }
+
+    fn set_nonblocking(&self) -> io::Result<()> {
+        // From libstd/sys/unix/fd.rs
+        unsafe {
+            let previous = cvt(libc::fcntl(self.fd, libc::F_GETFL))?;
+            let new = previous | libc::O_NONBLOCK;
+            if new != previous {
+                cvt(libc::fcntl(self.fd, libc::F_SETFL, new))?;
+            }
+            Ok(())
         }
     }
 
