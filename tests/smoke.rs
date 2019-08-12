@@ -1,7 +1,7 @@
 extern crate iovec;
 extern crate mio;
-extern crate tempdir;
 extern crate mio_uds;
+extern crate tempdir;
 
 use std::io::prelude::*;
 use std::time::Duration;
@@ -12,10 +12,12 @@ use mio_uds::*;
 use tempdir::TempDir;
 
 macro_rules! t {
-    ($e:expr) => (match $e {
-        Ok(e) => e,
-        Err(e) => panic!("{} failed with {}", stringify!($e), e),
-    })
+    ($e:expr) => {
+        match $e {
+            Ok(e) => e,
+            Err(e) => panic!("{} failed with {}", stringify!($e), e),
+        }
+    };
 }
 
 #[test]
@@ -39,8 +41,14 @@ fn listener() {
 
     let (s2, addr) = t!(a.accept()).unwrap();
 
-    assert_eq!(t!(s.peer_addr()).as_pathname(), t!(s2.local_addr()).as_pathname());
-    assert_eq!(t!(s.local_addr()).as_pathname(), t!(s2.peer_addr()).as_pathname());
+    assert_eq!(
+        t!(s.peer_addr()).as_pathname(),
+        t!(s2.local_addr()).as_pathname()
+    );
+    assert_eq!(
+        t!(s.local_addr()).as_pathname(),
+        t!(s2.peer_addr()).as_pathname()
+    );
     assert_eq!(addr.as_pathname(), t!(s.local_addr()).as_pathname());
 }
 
@@ -82,8 +90,7 @@ fn stream_iovec() {
     assert_eq!(events.get(1).unwrap().readiness(), Ready::writable());
 
     let send = b"Hello, World!";
-    let vecs: [&IoVec;2] = [ (&send[..6]).into(),
-                             (&send[6..]).into() ];
+    let vecs: [&IoVec; 2] = [(&send[..6]).into(), (&send[6..]).into()];
 
     assert_eq!(t!(a.write_bufs(&vecs)), send.len());
 
@@ -94,7 +101,7 @@ fn stream_iovec() {
     let mut recv = [0; 13];
     {
         let (mut first, mut last) = recv.split_at_mut(6);
-        let mut vecs: [&mut IoVec;2] = [ first.into(), last.into() ];
+        let mut vecs: [&mut IoVec; 2] = [first.into(), last.into()];
         assert_eq!(t!(b.read_bufs(&mut vecs)), send.len());
     }
     assert_eq!(&send[..], &recv[..]);

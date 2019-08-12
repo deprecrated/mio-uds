@@ -1,17 +1,17 @@
 use std::cmp;
-use std::io::prelude::*;
 use std::io;
+use std::io::prelude::*;
+use std::net::Shutdown;
 use std::os::unix::net;
 use std::os::unix::prelude::*;
 use std::path::Path;
-use std::net::Shutdown;
 
-use iovec::IoVec;
 use iovec::unix as iovec;
+use iovec::IoVec;
 use libc;
 use mio::event::Evented;
 use mio::unix::EventedFd;
-use mio::{Poll, Token, Ready, PollOpt};
+use mio::{Poll, PollOpt, Ready, Token};
 
 use cvt;
 use socket::{sockaddr_un, Socket};
@@ -77,8 +77,10 @@ impl UnixStream {
     /// Returns two `UnixStream`s which are connected to each other.
     pub fn pair() -> io::Result<(UnixStream, UnixStream)> {
         Socket::pair(libc::SOCK_STREAM).map(|(a, b)| unsafe {
-            (UnixStream::from_raw_fd(a.into_fd()),
-             UnixStream::from_raw_fd(b.into_fd()))
+            (
+                UnixStream::from_raw_fd(a.into_fd()),
+                UnixStream::from_raw_fd(b.into_fd()),
+            )
         })
     }
 
@@ -89,9 +91,7 @@ impl UnixStream {
     /// data, and options set on one stream will be propogated to the other
     /// stream.
     pub fn try_clone(&self) -> io::Result<UnixStream> {
-        self.inner.try_clone().map(|s| {
-            UnixStream { inner: s }
-        })
+        self.inner.try_clone().map(|s| UnixStream { inner: s })
     }
 
     /// Returns the socket address of the local half of this connection.
@@ -134,9 +134,7 @@ impl UnixStream {
         unsafe {
             let slice = iovec::as_os_slice_mut(bufs);
             let len = cmp::min(<libc::c_int>::max_value() as usize, slice.len());
-            let rc = libc::readv(self.inner.as_raw_fd(),
-                                slice.as_ptr(),
-                                len as libc::c_int);
+            let rc = libc::readv(self.inner.as_raw_fd(), slice.as_ptr(), len as libc::c_int);
             if rc < 0 {
                 Err(io::Error::last_os_error())
             } else {
@@ -161,9 +159,7 @@ impl UnixStream {
         unsafe {
             let slice = iovec::as_os_slice(bufs);
             let len = cmp::min(<libc::c_int>::max_value() as usize, slice.len());
-            let rc = libc::writev(self.inner.as_raw_fd(),
-                                 slice.as_ptr(),
-                                 len as libc::c_int);
+            let rc = libc::writev(self.inner.as_raw_fd(), slice.as_ptr(), len as libc::c_int);
             if rc < 0 {
                 Err(io::Error::last_os_error())
             } else {
@@ -174,19 +170,17 @@ impl UnixStream {
 }
 
 impl Evented for UnixStream {
-    fn register(&self,
-                poll: &Poll,
-                token: Token,
-                events: Ready,
-                opts: PollOpt) -> io::Result<()> {
+    fn register(&self, poll: &Poll, token: Token, events: Ready, opts: PollOpt) -> io::Result<()> {
         EventedFd(&self.as_raw_fd()).register(poll, token, events, opts)
     }
 
-    fn reregister(&self,
-                  poll: &Poll,
-                  token: Token,
-                  events: Ready,
-                  opts: PollOpt) -> io::Result<()> {
+    fn reregister(
+        &self,
+        poll: &Poll,
+        token: Token,
+        events: Ready,
+        opts: PollOpt,
+    ) -> io::Result<()> {
         EventedFd(&self.as_raw_fd()).reregister(poll, token, events, opts)
     }
 
@@ -241,6 +235,8 @@ impl IntoRawFd for UnixStream {
 
 impl FromRawFd for UnixStream {
     unsafe fn from_raw_fd(fd: i32) -> UnixStream {
-        UnixStream { inner: net::UnixStream::from_raw_fd(fd) }
+        UnixStream {
+            inner: net::UnixStream::from_raw_fd(fd),
+        }
     }
 }
