@@ -7,7 +7,7 @@ use std::path::Path;
 use libc;
 use mio::event::Evented;
 use mio::unix::EventedFd;
-use mio::{Poll, Token, Ready, PollOpt};
+use mio::{Poll, PollOpt, Ready, Token};
 
 use cvt;
 use socket::{sockaddr_un, Socket};
@@ -52,8 +52,10 @@ impl UnixDatagram {
     pub fn pair() -> io::Result<(UnixDatagram, UnixDatagram)> {
         unsafe {
             let (a, b) = try!(Socket::pair(libc::SOCK_DGRAM));
-            Ok((UnixDatagram::from_raw_fd(a.into_fd()),
-                UnixDatagram::from_raw_fd(b.into_fd())))
+            Ok((
+                UnixDatagram::from_raw_fd(a.into_fd()),
+                UnixDatagram::from_raw_fd(b.into_fd()),
+            ))
         }
     }
 
@@ -78,9 +80,7 @@ impl UnixDatagram {
     /// object references. Both handles can be used to accept incoming
     /// connections and options set on one listener will affect the other.
     pub fn try_clone(&self) -> io::Result<UnixDatagram> {
-        self.inner.try_clone().map(|i| {
-            UnixDatagram { inner: i }
-        })
+        self.inner.try_clone().map(|i| UnixDatagram { inner: i })
     }
 
     /// Returns the address of this socket.
@@ -143,19 +143,17 @@ impl UnixDatagram {
 }
 
 impl Evented for UnixDatagram {
-    fn register(&self,
-                poll: &Poll,
-                token: Token,
-                events: Ready,
-                opts: PollOpt) -> io::Result<()> {
+    fn register(&self, poll: &Poll, token: Token, events: Ready, opts: PollOpt) -> io::Result<()> {
         EventedFd(&self.as_raw_fd()).register(poll, token, events, opts)
     }
 
-    fn reregister(&self,
-                  poll: &Poll,
-                  token: Token,
-                  events: Ready,
-                  opts: PollOpt) -> io::Result<()> {
+    fn reregister(
+        &self,
+        poll: &Poll,
+        token: Token,
+        events: Ready,
+        opts: PollOpt,
+    ) -> io::Result<()> {
         EventedFd(&self.as_raw_fd()).reregister(poll, token, events, opts)
     }
 
@@ -178,6 +176,8 @@ impl IntoRawFd for UnixDatagram {
 
 impl FromRawFd for UnixDatagram {
     unsafe fn from_raw_fd(fd: i32) -> UnixDatagram {
-        UnixDatagram { inner: net::UnixDatagram::from_raw_fd(fd) }
+        UnixDatagram {
+            inner: net::UnixDatagram::from_raw_fd(fd),
+        }
     }
 }

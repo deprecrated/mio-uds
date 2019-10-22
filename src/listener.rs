@@ -8,9 +8,9 @@ use mio::event::Evented;
 use mio::unix::EventedFd;
 use mio::{Poll, PollOpt, Ready, Token};
 
-use UnixStream;
 use cvt;
 use socket::{sockaddr_un, Socket};
+use UnixStream;
 
 /// A structure representing a Unix domain socket server.
 ///

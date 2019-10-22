@@ -16,7 +16,11 @@ matrix:
       after_success:
         - travis-cargo --only nightly doc-upload
 
+before_script:
+  - rustup component add rustfmt
+
 script:
+  - cargo fmt -- --check
   - cargo test
 
 env:

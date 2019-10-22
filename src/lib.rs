@@ -15,9 +15,9 @@ mod listener;
 mod socket;
 mod stream;
 
-pub use stream::UnixStream;
-pub use listener::UnixListener;
 pub use datagram::UnixDatagram;
+pub use listener::UnixListener;
+pub use stream::UnixStream;
 
 fn cvt(i: libc::c_int) -> io::Result<libc::c_int> {
     if i == -1 {
