@@ -5,6 +5,7 @@ use std::os::unix::net;
 use std::os::unix::prelude::*;
 use std::path::Path;
 use std::net::Shutdown;
+use std::mem;
 
 use iovec::IoVec;
 use iovec::unix as iovec;
@@ -15,6 +16,8 @@ use mio::{Poll, Token, Ready, PollOpt};
 
 use cvt;
 use socket::{sockaddr_un, Socket};
+use std::os::raw::c_uint;
+use std::ffi::c_void;
 
 /// A Unix stream socket.
 ///
@@ -164,6 +167,125 @@ impl UnixStream {
             let rc = libc::writev(self.inner.as_raw_fd(),
                                  slice.as_ptr(),
                                  len as libc::c_int);
+            if rc < 0 {
+                Err(io::Error::last_os_error())
+            } else {
+                Ok(rc as usize)
+            }
+        }
+    }
+
+    /// Read in a list of buffers all at once and receive all file descriptors.
+    ///
+    /// This operation will attempt to read bytes from this socket and place
+    /// them into the list of buffers provided. Note that each buffer is an
+    /// `IoVec` which can be created from a byte slice.
+    ///
+    /// The buffers provided will be filled in sequentially. A buffer will be
+    /// entirely filled up before the next is written to.
+    ///
+    /// The number of bytes read and a vector of file descriptors is returned,
+    /// if successful, or an error is returned otherwise. If no bytes are
+    /// available to be read yet then a "would block" error is returned.
+    /// This operation does not block.
+    pub fn read_bufs_fds(&mut self, bufs: &mut [&mut IoVec])
+        -> io::Result<(usize, Vec<RawFd>)> {
+        unsafe {
+            let iov = iovec::as_os_slice_mut(bufs);
+            let iov_len = cmp::min(<libc::c_int>::max_value() as usize, iov.len());
+
+            let mut buffer: [u8;512] = [0;512];
+            let mut available_len = mem::size_of::<[u8;512]>();
+
+            let mut msg = libc::msghdr {
+                msg_name: std::ptr::null_mut(),
+                msg_namelen: 0,
+                msg_iov: iov.as_mut_ptr(),
+                msg_iovlen: iov_len,
+                msg_control: buffer.as_mut_ptr() as *mut c_void,
+                msg_controllen: mem::size_of::<[u8;512]>(),
+                msg_flags: 0
+            };
+
+            let rc = libc::recvmsg(self.as_raw_fd(), &mut msg, 0);
+            if rc < 0 {
+                return Err(io::Error::last_os_error())
+            }
+
+            let mut fds = Vec::new();
+
+            let cmsg_len_zero = libc::CMSG_LEN(0) as usize;
+            let mut cmsg = libc::CMSG_FIRSTHDR(&msg);
+
+            while !cmsg.is_null() {
+                let cmsg_len = cmp::min((*cmsg).cmsg_len, available_len);
+                if cmsg_len < cmsg_len_zero {
+                    break;
+                }
+
+                if (*cmsg).cmsg_level == libc::SOL_SOCKET &&
+                    (*cmsg).cmsg_type == libc::SCM_RIGHTS {
+                    let data_len = cmsg_len - cmsg_len_zero;
+                    let data = libc::CMSG_DATA(cmsg) as *const RawFd;
+
+                    let len = data_len / mem::size_of::<RawFd>();
+
+                    fds.extend(std::slice::from_raw_parts(data, len));
+                }
+
+                available_len -= cmsg_len;
+                cmsg = libc::CMSG_NXTHDR(&msg, cmsg);
+            }
+
+            return Ok((rc as usize, fds));
+        }
+    }
+
+
+    /// Write a list of buffers all at once and send all file descriptors.
+    ///
+    /// This operation will attempt to write a list of byte buffers to this
+    /// socket. Note that each buffer is an `IoVec` which can be created from a
+    /// byte slice.
+    ///
+    /// The buffers provided will be written sequentially. A buffer will be
+    /// entirely written before the next is written.
+    ///
+    /// The number of bytes written is returned, if successful, or an error is
+    /// returned otherwise. If the socket is not currently writable then a
+    /// "would block" error is returned. This operation does not block.
+    pub fn write_bufs_fds(&mut self, bufs: &mut [&mut IoVec], fds: &[RawFd])
+        -> io::Result<usize> {
+        unsafe {
+            let iov = iovec::as_os_slice_mut(bufs);
+            let iov_len = cmp::min(<libc::c_int>::max_value() as usize, iov.len());
+
+            let mut buffer: [u8;512] = [0;512];
+
+            let msg = libc::msghdr {
+                msg_name: std::ptr::null_mut(),
+                msg_namelen: 0,
+                msg_iov: iov.as_mut_ptr(),
+                msg_iovlen: iov_len,
+                msg_control: buffer.as_mut_ptr() as *mut c_void,
+                msg_controllen: mem::size_of::<[u8;512]>(),
+                msg_flags: 0
+            };
+
+            let data_len = mem::size_of::<RawFd>() * fds.len();
+            let cmsg_len = libc::CMSG_LEN(data_len as c_uint);
+
+            if cmsg_len <= msg.msg_controllen as c_uint {
+                let cmsg = libc::CMSG_FIRSTHDR(&msg as *const libc::msghdr);
+                (*cmsg).cmsg_level = libc::SOL_SOCKET;
+                (*cmsg).cmsg_type = libc::SCM_RIGHTS;
+                (*cmsg).cmsg_len = cmsg_len as usize;
+                libc::memcpy(libc::CMSG_DATA(cmsg) as *mut libc::c_void,
+                             fds.as_ptr() as *const _,
+                             data_len);
+            }
+
+            let rc = libc::sendmsg(self.as_raw_fd(), &msg, 0);
             if rc < 0 {
                 Err(io::Error::last_os_error())
             } else {
