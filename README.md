@@ -1,29 +1,21 @@
 # mio-uds
 
-[![Build Status](https://travis-ci.org/alexcrichton/mio-uds.svg?branch=master)](https://travis-ci.org/alexcrichton/mio-uds)
+Deprecated library for integrating Unix Domain Sockets with [mio].
 
-[Documentation](https://docs.rs/mio-uds)
-
-A library for integrating Unix Domain Sockets with [mio]. Based on the standard
-library's [support for Unix sockets][std], except all of the abstractions and
-types are nonblocking to conform with the expectations of mio.
+Use the `uds` feature on mio instead of this crate:
 
 [mio]: https://github.com/carllerche/mio
-[std]: https://doc.rust-lang.org/std/os/unix/net/
 
 ```toml
 # Cargo.toml
 [dependencies]
-mio-uds = "0.6"
-mio = "0.6"
+mio = { version = "0.7", features = ["uds"] }
 ```
 
 ## Usage
 
 The three exported types at the top level, `UnixStream`, `UnixListener`, and
-`UnixDatagram`, are thin wrappers around the libstd counterparts. They can be
-used in similar fashions to mio's TCP and UDP types in terms of registration and
-API.
+`UnixDatagram`, are reexports from mio.
 
 # License
 
