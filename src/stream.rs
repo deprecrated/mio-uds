@@ -188,7 +188,7 @@ impl UnixStream {
     /// if successful, or an error is returned otherwise. If no bytes are
     /// available to be read yet then a "would block" error is returned.
     /// This operation does not block.
-    pub fn read_bufs_fds(&mut self, bufs: &mut [&mut IoVec])
+    pub fn read_bufs_fds(&self, bufs: &mut [&mut IoVec])
         -> io::Result<(usize, Vec<RawFd>)> {
         unsafe {
             let iov = iovec::as_os_slice_mut(bufs);
@@ -254,7 +254,7 @@ impl UnixStream {
     /// The number of bytes written is returned, if successful, or an error is
     /// returned otherwise. If the socket is not currently writable then a
     /// "would block" error is returned. This operation does not block.
-    pub fn write_bufs_fds(&mut self, bufs: &mut [&mut IoVec], fds: &[RawFd])
+    pub fn write_bufs_fds(&self, bufs: &mut [&mut IoVec], fds: &[RawFd])
         -> io::Result<usize> {
         unsafe {
             let iov = iovec::as_os_slice_mut(bufs);
