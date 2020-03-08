@@ -262,7 +262,7 @@ impl UnixStream {
 
             let mut buffer: [u8;512] = [0;512];
 
-            let msg = libc::msghdr {
+            let mut msg = libc::msghdr {
                 msg_name: std::ptr::null_mut(),
                 msg_namelen: 0,
                 msg_iov: iov.as_mut_ptr(),
@@ -272,17 +272,25 @@ impl UnixStream {
                 msg_flags: 0
             };
 
-            let data_len = mem::size_of::<RawFd>() * fds.len();
-            let cmsg_len = libc::CMSG_LEN(data_len as c_uint);
+            let fds_len = fds.len();
+            if 0 < fds_len {
+                let data_len = mem::size_of::<RawFd>() * fds_len;
+                let cmsg_len = libc::CMSG_LEN(data_len as c_uint);
 
-            if cmsg_len <= msg.msg_controllen as c_uint {
-                let cmsg = libc::CMSG_FIRSTHDR(&msg as *const libc::msghdr);
-                (*cmsg).cmsg_level = libc::SOL_SOCKET;
-                (*cmsg).cmsg_type = libc::SCM_RIGHTS;
-                (*cmsg).cmsg_len = cmsg_len as usize;
-                libc::memcpy(libc::CMSG_DATA(cmsg) as *mut libc::c_void,
-                             fds.as_ptr() as *const _,
-                             data_len);
+                if cmsg_len <= msg.msg_controllen as c_uint {
+                    let cmsg = libc::CMSG_FIRSTHDR(&msg as *const libc::msghdr);
+                    (*cmsg).cmsg_level = libc::SOL_SOCKET;
+                    (*cmsg).cmsg_type = libc::SCM_RIGHTS;
+                    (*cmsg).cmsg_len = cmsg_len as usize;
+                    libc::memcpy(libc::CMSG_DATA(cmsg) as *mut libc::c_void,
+                                 fds.as_ptr() as *const _,
+                                 data_len);
+                    msg.msg_controllen = cmsg_len as usize;
+                } else {
+                    msg.msg_controllen = 0;
+                }
+            } else {
+                msg.msg_controllen = 0;
             }
 
             let rc = libc::sendmsg(self.as_raw_fd(), &msg, 0);
