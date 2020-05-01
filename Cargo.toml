@@ -21,7 +21,7 @@ include = [
 
 [target."cfg(unix)".dependencies]
 iovec = "0.1"
-libc = "0.2.42"
+libc = "0.2.69"
 mio = "0.6.5"
 
 [dev-dependencies]
